@@ -1,0 +1,57 @@
+version: 2
+updates:
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Tailwind 4 replaces tailwind.config.js and the PostCSS setup; ESLint 9
+      # replaces .eslintrc.cjs with flat config. Migrate each deliberately
+      # (config changes included), not through a drive-by bump.
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint-plugin-vue"
+        update-types: ["version-update:semver-major"]
+      # The Inertia server and client adapters are versioned together.
+      - dependency-name: "@inertiajs/vue3"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+
+  # Service images pinned in docker-compose*.yml
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Major bumps of stateful services (databases, caches) need a deliberate
+      # data-migration plan, not a drive-by version bump.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

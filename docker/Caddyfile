@@ -1,0 +1,21 @@
+# Production web tier. Serves the compiled static assets directly and proxies
+# dynamic requests to the `app` service (PHP-FPM) over FastCGI.
+#
+# SITE_ADDRESS defaults to plain HTTP on :80. Set it to your domain (for
+# example `app.example.com`) and Caddy obtains and renews a certificate
+# automatically; no other change is needed.
+{$SITE_ADDRESS::80} {
+	root * /srv/public
+	encode gzip
+
+	# `root` above is this container's filesystem (for file_server). PHP-FPM
+	# runs in a separate container whose document root is
+	# /var/www/html/public, so php_fastcgi needs its own root: otherwise
+	# SCRIPT_FILENAME points at a path that does not exist on the FPM side
+	# and every request is a 404.
+	php_fastcgi app:9000 {
+		root /var/www/html/public
+	}
+
+	file_server
+}

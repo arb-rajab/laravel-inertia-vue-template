@@ -1,0 +1,101 @@
+# Local development stack. For production, see docker-compose.prod.yml.
+#
+#   docker compose up --build        app, worker, frontend (Vite), postgres, redis
+#
+# First boot creates the Postgres roles and both databases from
+# docker/postgres/init. Run migrations as the owning role:
+#   docker compose exec app php artisan migrate --database=pgsql_migrator
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: runtime
+    image: starter-app-app:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+    environment:
+      - DB_HOST=postgres
+      - DB_MIGRATOR_HOST=postgres
+      - REDIS_HOST=redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "echo file_get_contents('http://localhost:8000/up');"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    # Same image as `app` (only the command differs), so it is built once.
+    image: starter-app-app:latest
+    command: ["php", "artisan", "queue:work", "--tries=3"]
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+    environment:
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
+    depends_on:
+      app:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/node_modules
+    depends_on:
+      - app
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_superuser_local_only
+      POSTGRES_DB: postgres
+    ports:
+      - "${FORWARD_DB_PORT:-5432}:5432"
+    volumes:
+      - starter-app-postgres-data:/var/lib/postgresql/data
+      # Creates the migrator and app roles and both databases on first boot.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${FORWARD_REDIS_PORT:-6379}:6379"
+    volumes:
+      - starter-app-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  starter-app-postgres-data:
+  starter-app-redis-data:

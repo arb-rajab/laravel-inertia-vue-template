@@ -1,0 +1,78 @@
+# Production images: PHP-FPM (`app`) behind Caddy (`web`).
+#
+#   app  PHP-FPM with the application code and compiled assets. No Node.js,
+#        npm or Playwright, and no test-only PHP extensions.
+#   web  Caddy: serves the compiled static assets and proxies PHP requests to
+#        `app` over FastCGI.
+#
+# `docker compose -f docker-compose.prod.yml build` builds both targets.
+
+# ---------------------------------------------------------------------------
+# node:22-slim (glibc), not -alpine: the lockfile resolves glibc builds of
+# optional native packages, and `npm ci` on musl trips npm's optional-dependency
+# bug (https://github.com/npm/cli/issues/4828).
+FROM node:22-slim AS frontend-assets
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm ci --no-audit --no-fund
+
+COPY . .
+RUN npm run build
+
+# ---------------------------------------------------------------------------
+FROM php:8.4-fpm AS php-deps
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        unzip \
+        libpq-dev \
+        libzip-dev \
+        ca-certificates \
+    && docker-php-ext-install pdo pdo_pgsql zip opcache \
+    && rm -rf /var/lib/apt/lists/*
+
+# php.net's recommended production settings. validate_timestamps=0 means a code
+# change needs a container restart, which is correct for an immutable image
+# built per release.
+RUN { \
+        echo 'opcache.enable=1'; \
+        echo 'opcache.memory_consumption=128'; \
+        echo 'opcache.max_accelerated_files=10000'; \
+        echo 'opcache.validate_timestamps=0'; \
+    } > /usr/local/etc/php/conf.d/opcache-recommended.ini
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+COPY composer.json composer.lock* ./
+RUN composer install --no-interaction --no-dev --no-scripts --no-progress --optimize-autoloader
+
+# ---------------------------------------------------------------------------
+FROM php-deps AS app
+
+COPY . .
+COPY --from=frontend-assets /app/public/build ./public/build
+COPY --from=frontend-assets /app/public/widget.js ./public/widget.js
+
+# Second install (the first skipped scripts to keep the dependency layer
+# cacheable) so package discovery runs against the full application tree.
+RUN composer install --no-interaction --no-dev --no-progress --optimize-autoloader \
+    && chown -R www-data:www-data storage bootstrap/cache
+
+COPY docker/entrypoint.prod.sh /usr/local/bin/entrypoint.prod.sh
+RUN chmod +x /usr/local/bin/entrypoint.prod.sh
+
+ENTRYPOINT ["entrypoint.prod.sh"]
+CMD ["php-fpm"]
+
+EXPOSE 9000
+
+# ---------------------------------------------------------------------------
+FROM caddy:2-alpine AS web
+
+COPY --from=frontend-assets /app/public /srv/public
+COPY docker/Caddyfile /etc/caddy/Caddyfile
+
+EXPOSE 80 443

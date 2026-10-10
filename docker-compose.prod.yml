@@ -1,0 +1,70 @@
+# Production reference stack: PHP-FPM (`app`) behind Caddy (`web`), plus a
+# queue worker and a one-shot `migrate` job.
+#
+# PostgreSQL and Redis are NOT part of this file: use managed services (or your
+# own) and point DB_*, DB_MIGRATOR_* and REDIS_* at them in `.env` (never commit
+# that file). Create the two Postgres roles with real passwords first; the
+# script in docker/postgres/init shows the grants, but its passwords are
+# local-development values.
+#
+#   docker compose -f docker-compose.prod.yml build
+#   docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Set SITE_ADDRESS in `.env` to your domain for automatic HTTPS. Keep the
+# migrator credentials (DB_MIGRATOR_*) out of `app` and `worker` if you can:
+# they only need DB_USERNAME/DB_PASSWORD. The `migrate` service is the one
+# place that needs both.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.prod
+      target: app
+    image: starter-app-app-prod:latest
+    env_file: .env
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      # Docker-internal private ranges: the proxy (`web`) lives in one of them.
+      - TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.prod
+      target: web
+    image: starter-app-web-prod:latest
+    environment:
+      - SITE_ADDRESS=${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+    depends_on:
+      - app
+
+  worker:
+    image: starter-app-app-prod:latest
+    command: ["php", "artisan", "queue:work", "--tries=3"]
+    env_file: .env
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+    depends_on:
+      - app
+
+  migrate:
+    profiles: ["migrate"]
+    image: starter-app-app-prod:latest
+    entrypoint: []
+    command: ["php", "artisan", "migrate", "--database=pgsql_migrator", "--force"]
+    env_file: .env
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+
+volumes:
+  caddy-data:

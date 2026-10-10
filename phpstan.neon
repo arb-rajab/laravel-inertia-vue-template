@@ -1,0 +1,16 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+
+    # Level 8 on purpose: type-safety gaps are exactly the kind of bug that
+    # shows up as a wrong authorisation decision, not just a crash.
+    level: 8
+
+    tmpDir: build/phpstan
+
+    # Keep this list empty. Any future entry must carry a comment explaining
+    # why the suppression is safe; a silent ignoreErrors list hides real bugs.
+    ignoreErrors: []
