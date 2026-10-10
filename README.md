@@ -21,7 +21,7 @@ otherwise rebuild on day one.
 | Database | Two Postgres connections: `pgsql` (runtime role, no `BYPASSRLS`) and `pgsql_migrator` (owner role). Bootstrap SQL in `docker/postgres/init` |
 | Tests | Pest 4 (Feature: auth flow, CSRF, rate limit, trusted proxies, error contract, pagination helper; Browser: login UI via Playwright), Vitest (components, composable, API helper, pages) |
 | Tooling | Pint, Larastan (level 8), ESLint, `.editorconfig`, Docker (`runtime`, `test`, production `app` + `web` with Caddy), CI |
-| Governance | MIT `LICENSE` placeholder, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, Dependabot, issue/PR templates, empty `osv-scanner.toml` and `.gitleaksignore`, `scaffold-memory-pack.sh`, empty `docs/project-memory` |
+| Governance | MIT `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, Dependabot, issue/PR templates, `osv-scanner.toml` (dated exceptions only) and an empty `.gitleaksignore`, `scaffold-memory-pack.sh`, empty `docs/project-memory` |
 
 ### Shared components (`resources/js/Components/`)
 

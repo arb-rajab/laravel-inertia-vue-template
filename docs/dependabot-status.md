@@ -27,6 +27,7 @@ _Last updated: 2026-10-10. Starter template extracted from `privacy-forge`; upda
 - `main` protection (2026-10-10, read back): pull request required (0 approvals), enforced for admins, force pushes and deletions blocked, "require branches to be up to date" off (`strict` false) on purpose. Nobody pushes to `main` directly; status-log updates go through a PR too.
 - Required contexts: `Backend (PHP 8.3: lint, static analysis, tests)`, `Backend (PHP 8.4: lint, static analysis, tests)`, `Browser tests (Pest + Playwright)`, `Frontend (lint, unit tests, build)`, `Secret scanning (gitleaks)`. Nothing else is required on purpose: osv-scanner, npm audit, dependency review and CodeQL depend on a moving advisory database or run only on some events.
 - Closed unmerged on 2026-10-10, each with an explanatory comment: #1 (`inertiajs/inertia-laravel` 1 -> 3) and #2 (`node` 22 -> 25 in `/docker`, non-LTS). If Dependabot recreates one, apply the merge policy; the closure is not re-raised. Dependabot does not re-propose a major after its PR is closed, so a later upgrade is a manual change.
+- Rescan 2026-10-10 (new dimension: leftover placeholders in community files): `SECURITY.md` and `CODE_OF_CONDUCT.md` still had `<SECURITY CONTACT EMAIL>` / `<CONDUCT CONTACT EMAIL>`. Reports now go through GitHub private vulnerability reporting (enabled) and to the project maintainer, as in the other templates. The README no longer calls `LICENSE` a placeholder or `osv-scanner.toml` empty.
 
 ## Deferred (not re-raised each pass)
 
